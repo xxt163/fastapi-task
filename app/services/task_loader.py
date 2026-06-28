@@ -1,17 +1,45 @@
+"""任务模块加载器"""
+
 import importlib
+from typing import Any, Callable
 
 
-def load_task(flow: str, task: str):
+# 模块缓存
+_module_cache: dict[str, Any] = {}
+
+
+def get_task_module(flow: str, task: str) -> Any:
     """
-    动态加载任务模块并返回 run 函数
-    """
-    module_path = f"tasks.{flow}.{task}"
+    获取任务模块(带缓存)
 
-    try:
-        module = importlib.import_module(module_path)
-        run_func = getattr(module, "run")
-    except ImportError:
-        raise ImportError(f"无法导入任务模块: {module_path}")
-    except AttributeError:
-        raise AttributeError(f"任务模块 {module_path} 没有 run 函数")
-    return run_func
+    Args:
+        flow: 流程名称
+        task: 任务名称
+
+    Returns:
+        任务模块对象
+    """
+    module_name = f"tasks.{flow}.{task}"
+
+    if module_name not in _module_cache:
+        _module_cache[module_name] = importlib.import_module(module_name)
+
+    return _module_cache[module_name]
+
+
+def load_task(flow: str, task: str) -> Callable:
+    """
+    加载指定任务的 run 函数
+
+    Args:
+        flow: 流程名称
+        task: 任务名称
+
+    Returns:
+        任务的 run 函数
+
+    Raises:
+        AttributeError: 如果模块中没有 run 函数
+    """
+    module = get_task_module(flow, task)
+    return getattr(module, "run")

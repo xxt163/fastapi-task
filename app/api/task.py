@@ -56,14 +56,15 @@ async def run_task(request: TaskRequest):
     error_message = None
 
     try:
-        # 调用任务加载器加载任务
+        # 加载指定任务的 run 函数
         task_run_func = load_task(request.flow, request.task)
-        # 调用任务 run 函数
+        # 执行任务
         result = await asyncio.to_thread(task_run_func, request.data)
     except Exception as e:
+        print(e)
         # 捕获任务执行异常,记录完整堆栈信息
         status = "failed"
-        error_message = str(e) + "\n" + traceback.format_exc()
+        error_message = traceback.format_exc()
 
     # 计算耗时(毫秒)
     duration_ms = int((time.perf_counter() - start_time) * 1000)
