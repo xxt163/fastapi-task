@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from app.core.config import settings
+from app.core.logger import get_task_logger
 from app.schemas.task_schemas import TaskRequest, TaskResponse
 from app.services.task_loader import load_task
 
@@ -55,19 +56,28 @@ async def run_task(request: TaskRequest):
     result = None
     error_message = None
 
+    # 获取任务日志记录器
+    logger = get_task_logger(request.flow, request.task)
+    logger.info("Task started", extra={"task_id": task_id})
+
     try:
         # 加载指定任务的 run 函数
         task_run_func = load_task(request.flow, request.task)
         # 执行任务
         result = await asyncio.to_thread(task_run_func, request.data)
     except Exception as e:
-        print(e)
         # 捕获任务执行异常,记录完整堆栈信息
         status = "failed"
         error_message = traceback.format_exc()
+        logger.error("Task failed", extra={"task_id": task_id, "error": error_message})
 
     # 计算耗时(毫秒)
     duration_ms = int((time.perf_counter() - start_time) * 1000)
+
+    if status == "success":
+        logger.info(
+            "Task completed", extra={"task_id": task_id, "duration_ms": duration_ms}
+        )
 
     return TaskResponse(
         task_id=task_id,

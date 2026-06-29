@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     app_name: str = "FastAPI Task"
     debug: bool = True
+    log_level: str = "INFO"
     project_root_dir: str = str(Path(__file__).resolve().parent.parent.parent)
 
     model_config = SettingsConfigDict(
