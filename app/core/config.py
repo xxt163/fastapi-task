@@ -28,5 +28,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-print(f"Project root directory: {settings.project_root_dir}")

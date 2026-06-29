@@ -3,6 +3,7 @@
 import asyncio
 import os
 import smtplib
+import socket
 from datetime import datetime, timezone
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -80,14 +81,25 @@ def send_email(
             )
             msg.attach(part)
 
-    if _use_ssl:
-        with smtplib.SMTP_SSL(_host, _port, timeout=15) as server:
-            server.login(_user, _password)
-            server.send_message(msg)
-    else:
-        with smtplib.SMTP(_host, _port, timeout=15) as server:
-            server.login(_user, _password)
-            server.send_message(msg)
+    try:
+        if _use_ssl:
+            with smtplib.SMTP_SSL(_host, _port, timeout=15) as server:
+                server.login(_user, _password)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(_host, _port, timeout=15) as server:
+                server.login(_user, _password)
+                server.send_message(msg)
+    except smtplib.SMTPConnectError as e:
+        raise ConnectionError(f"SMTP 连接失败: {_host}:{_port}, {str(e)}")
+    except smtplib.SMTPAuthenticationError as e:
+        raise PermissionError(f"SMTP 认证失败: {str(e)}")
+    except smtplib.SMTPException as e:
+        raise RuntimeError(f"SMTP 发送失败: {str(e)}")
+    except socket.timeout:
+        raise TimeoutError(f"SMTP 连接超时: {_host}:{_port}")
+    except (socket.gaierror, ConnectionRefusedError) as e:
+        raise ConnectionError(f"SMTP 网络错误: {str(e)}")
 
 
 async def send_task_failure_email(

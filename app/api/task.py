@@ -73,7 +73,7 @@ async def run_task(request: TaskRequest):
         logger.error("Task failed", extra={"task_id": task_id, "error": error_message})
         asyncio.create_task(
             send_task_failure_email(
-                task_id, request.flow, request.task, error_message, duration_ms
+                task_id, request.flow, request.task, error_message, int((time.perf_counter() - start_time) * 1000)
             )
         )
 
