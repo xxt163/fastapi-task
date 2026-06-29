@@ -52,14 +52,26 @@ def get_service_logger() -> logging.Logger:
     date_str = datetime.now().strftime("%Y-%m-%d")
     log_dir = LOG_DIR / date_str
     log_dir.mkdir(parents=True, exist_ok=True)
+    expected_log_file = log_dir / "service.log"
 
     logger = logging.getLogger("service")
     logger.setLevel(_get_log_level())
 
     if not logger.handlers:
-        handler = logging.FileHandler(log_dir / "service.log", encoding="utf-8")
+        handler = logging.FileHandler(expected_log_file, encoding="utf-8")
         handler.setFormatter(JSONFormatter())
         logger.addHandler(handler)
+    else:
+        current_handler = logger.handlers[0]
+        if hasattr(
+            current_handler, "baseFilename"
+        ) and current_handler.baseFilename != str(expected_log_file):
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
+            handler = logging.FileHandler(expected_log_file, encoding="utf-8")
+            handler.setFormatter(JSONFormatter())
+            logger.addHandler(handler)
 
     return logger
 
@@ -86,8 +98,10 @@ def get_task_logger(flow: str, task: str) -> logging.Logger:
     # 每次执行创建新文件
     log_file = log_dir / f"{task}-{timestamp}.log"
 
-    # 清除旧处理器，避免重复
-    logger.handlers.clear()
+    # 关闭并移除旧处理器，避免文件句柄泄漏
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
 
     handler = logging.FileHandler(log_file, encoding="utf-8")
     handler.setFormatter(JSONFormatter())

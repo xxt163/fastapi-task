@@ -51,5 +51,6 @@ class TaskResponse(BaseModel):
     flow: str
     task: str
     status: str
-    result: dict[str, Any] = {}
+    result: Any = None
+    error: str | None = None
     duration_ms: int = 0

@@ -4,7 +4,7 @@ import traceback
 from uuid import uuid4
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from app.core.config import settings
 from app.core.logger import get_task_logger
@@ -14,8 +14,6 @@ from app.services.task_loader import load_task
 
 router = APIRouter(prefix="/task", tags=["Tasks"])
 
-
-# 任务模块根目录
 _TASKS_DIR = Path(settings.project_root_dir) / "tasks"
 
 
@@ -47,7 +45,7 @@ async def get_tasks():
 
 
 @router.post("/run", summary="Run a task")
-async def run_task(request: TaskRequest):
+async def run_task(request: TaskRequest, background_tasks: BackgroundTasks):
     """
     Run a task.
     """
@@ -62,22 +60,22 @@ async def run_task(request: TaskRequest):
     logger.info("Task started", extra={"task_id": task_id})
 
     try:
-        # 加载指定任务的 run 函数
         task_run_func = load_task(request.flow, request.task)
-        # 执行任务
         result = await asyncio.to_thread(task_run_func, request.data)
     except Exception as e:
-        # 捕获任务执行异常,记录完整堆栈信息
         status = "failed"
         error_message = traceback.format_exc() + "\nError: " + str(e)
         logger.error("Task failed", extra={"task_id": task_id, "error": error_message})
-        asyncio.create_task(
-            send_task_failure_email(
-                task_id, request.flow, request.task, error_message, int((time.perf_counter() - start_time) * 1000)
-            )
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        background_tasks.add_task(
+            send_task_failure_email,
+            task_id,
+            request.flow,
+            request.task,
+            error_message,
+            duration_ms,
         )
 
-    # 计算耗时(毫秒)
     duration_ms = int((time.perf_counter() - start_time) * 1000)
 
     if status == "success":
@@ -90,6 +88,7 @@ async def run_task(request: TaskRequest):
         flow=request.flow,
         task=request.task,
         status=status,
-        result=result if error_message is None else {"error": error_message},
+        result=result,
+        error=error_message,
         duration_ms=duration_ms,
     )
