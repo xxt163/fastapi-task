@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from app.core.config import settings
 from app.core.logger import get_task_logger
 from app.schemas.task_schemas import TaskRequest, TaskResponse
+from app.services.email import send_task_failure_email
 from app.services.task_loader import load_task
 
 router = APIRouter(prefix="/task", tags=["Tasks"])
@@ -70,6 +71,11 @@ async def run_task(request: TaskRequest):
         status = "failed"
         error_message = traceback.format_exc() + "\nError: " + str(e)
         logger.error("Task failed", extra={"task_id": task_id, "error": error_message})
+        asyncio.create_task(
+            send_task_failure_email(
+                task_id, request.flow, request.task, error_message, duration_ms
+            )
+        )
 
     # 计算耗时(毫秒)
     duration_ms = int((time.perf_counter() - start_time) * 1000)
