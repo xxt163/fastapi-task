@@ -2,13 +2,12 @@
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
-from pathlib import Path
 
 from app.core.config import settings
 
-# 日志目录
-LOG_DIR = Path(settings.project_root_dir) / "logs"
+LOG_DIR = os.path.join(settings.project_root_dir, "logs")
 
 
 class JSONFormatter(logging.Formatter):
@@ -22,7 +21,6 @@ class JSONFormatter(logging.Formatter):
             "msg": record.getMessage(),
         }
 
-        # 添加 extra 字段
         if hasattr(record, "task_id"):
             log_data["task_id"] = record.task_id
         if hasattr(record, "error"):
@@ -30,7 +28,6 @@ class JSONFormatter(logging.Formatter):
         if hasattr(record, "duration_ms"):
             log_data["duration_ms"] = record.duration_ms
 
-        # 添加异常信息
         if record.exc_info:
             log_data["exc_info"] = self.formatException(record.exc_info)
 
@@ -38,73 +35,69 @@ class JSONFormatter(logging.Formatter):
 
 
 def _get_log_level() -> int:
-    """获取日志级别"""
     level = getattr(settings, "log_level", "INFO").upper()
     return getattr(logging, level, logging.INFO)
 
 
-def get_service_logger() -> logging.Logger:
+def _ensure_dir(path: str) -> None:
+    os.makedirs(path, exist_ok=True)
+
+
+def _build_logger(name: str, file_path: str) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(_get_log_level())
+
+    if logger.handlers:
+        handler = logger.handlers[0]
+        if hasattr(handler, "baseFilename") and os.path.abspath(
+            handler.baseFilename
+        ) == os.path.abspath(file_path):
+            return logger
+        handler.close()
+        logger.removeHandler(handler)
+
+    handler = logging.FileHandler(file_path, encoding="utf-8")
+    handler.setFormatter(JSONFormatter())
+    logger.addHandler(handler)
+    return logger
+
+
+def get_service_logger(name: str = "service") -> logging.Logger:
     """
     获取服务级日志记录器
 
-    日志路径: {LOG_DIR}/{date}/service.log
+    日志文件: {LOG_DIR}/{date}/{name}.log
+    按天分目录，同一天追加写入
     """
     date_str = datetime.now().strftime("%Y-%m-%d")
-    log_dir = LOG_DIR / date_str
-    log_dir.mkdir(parents=True, exist_ok=True)
-    expected_log_file = log_dir / "service.log"
-
-    logger = logging.getLogger("service")
-    logger.setLevel(_get_log_level())
-
-    if not logger.handlers:
-        handler = logging.FileHandler(expected_log_file, encoding="utf-8")
-        handler.setFormatter(JSONFormatter())
-        logger.addHandler(handler)
-    else:
-        current_handler = logger.handlers[0]
-        if hasattr(
-            current_handler, "baseFilename"
-        ) and current_handler.baseFilename != str(expected_log_file):
-            for handler in logger.handlers[:]:
-                handler.close()
-                logger.removeHandler(handler)
-            handler = logging.FileHandler(expected_log_file, encoding="utf-8")
-            handler.setFormatter(JSONFormatter())
-            logger.addHandler(handler)
-
-    return logger
+    date_dir = os.path.join(LOG_DIR, date_str)
+    _ensure_dir(date_dir)
+    file_path = os.path.join(date_dir, f"{name}.log")
+    return _build_logger(f"service.{name}", file_path)
 
 
 def get_task_logger(flow: str, task: str) -> logging.Logger:
     """
     获取任务级日志记录器
 
-    日志路径: {LOG_DIR}/{date}/{flow}/{task}-{timestamp}.log
-
-    Args:
-        flow: 流程名称
-        task: 任务名称
+    日志文件: {LOG_DIR}/{date}/{flow}/{task}-{timestamp}.log
+    每次执行创建新文件
     """
     date_str = datetime.now().strftime("%Y-%m-%d")
     timestamp = datetime.now().strftime("%H%M%S")
-    log_dir = LOG_DIR / date_str / flow
-    log_dir.mkdir(parents=True, exist_ok=True)
+    date_dir = os.path.join(LOG_DIR, date_str, flow)
+    _ensure_dir(date_dir)
+    file_path = os.path.join(date_dir, f"{task}-{timestamp}.log")
 
     logger_name = f"tasks.{flow}.{task}"
     logger = logging.getLogger(logger_name)
     logger.setLevel(_get_log_level())
 
-    # 每次执行创建新文件
-    log_file = log_dir / f"{task}-{timestamp}.log"
-
-    # 关闭并移除旧处理器，避免文件句柄泄漏
     for handler in logger.handlers[:]:
         handler.close()
         logger.removeHandler(handler)
 
-    handler = logging.FileHandler(log_file, encoding="utf-8")
+    handler = logging.FileHandler(file_path, encoding="utf-8")
     handler.setFormatter(JSONFormatter())
     logger.addHandler(handler)
-
     return logger

@@ -5,7 +5,7 @@ import html
 import os
 import smtplib
 import socket
-from datetime import datetime, timezone
+from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -14,8 +14,7 @@ from app.core.config import settings
 from app.core.logger import get_service_logger
 
 
-def _get_logger():
-    return get_service_logger()
+logger = get_service_logger("email")
 
 
 def send_email(
@@ -93,7 +92,7 @@ async def send_task_failure_email(
 ) -> None:
     """发送任务失败通知邮件，失败时仅记录日志"""
     if not all([settings.smtp_host, settings.smtp_user, settings.smtp_to]):
-        _get_logger().warning(
+        logger.warning(
             "SMTP not configured, skipping email notification",
             extra={"task_id": task_id},
         )
@@ -120,11 +119,11 @@ async def send_task_failure_email(
         await asyncio.to_thread(
             send_email, subject=f"[任务失败] {flow}/{task}", body=body, is_html=True
         )
-        _get_logger().info(
+        logger.info(
             "Email notification sent",
             extra={"task_id": task_id, "to": settings.smtp_to},
         )
     except Exception as e:
-        _get_logger().error(
+        logger.error(
             "Failed to send email", extra={"task_id": task_id, "error": str(e)}
         )
