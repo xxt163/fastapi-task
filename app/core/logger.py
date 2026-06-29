@@ -29,6 +29,8 @@ class JSONFormatter(logging.Formatter):
             log_data["error"] = record.error
         if hasattr(record, "duration_ms"):
             log_data["duration_ms"] = record.duration_ms
+        if hasattr(record, "output"):
+            log_data["output"] = record.output
 
         # 添加异常信息
         if record.exc_info:
