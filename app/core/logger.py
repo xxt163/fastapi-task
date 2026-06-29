@@ -29,8 +29,6 @@ class JSONFormatter(logging.Formatter):
             log_data["error"] = record.error
         if hasattr(record, "duration_ms"):
             log_data["duration_ms"] = record.duration_ms
-        if hasattr(record, "output"):
-            log_data["output"] = record.output
 
         # 添加异常信息
         if record.exc_info:
@@ -81,7 +79,7 @@ def get_task_logger(flow: str, task: str) -> logging.Logger:
     log_dir = LOG_DIR / date_str / flow
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    logger_name = f"task.{flow}.{task}"
+    logger_name = f"tasks.{flow}.{task}"
     logger = logging.getLogger(logger_name)
     logger.setLevel(_get_log_level())
 
