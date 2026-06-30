@@ -5,10 +5,8 @@ from app.core.config import settings
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=8000,
+        host=settings.app_host,
+        port=settings.app_port,
         workers=settings.workers,
         log_config=None,
-        reload=True,
-        log_level=settings.log_level,
     )

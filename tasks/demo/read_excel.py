@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logger.propagate = False
+
 
 
 def read_excel(file_path: str):
@@ -30,4 +30,4 @@ if __name__ == "__main__":
         logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s")
     )
     logger.addHandler(handler)
-    print(run({"file_path": "/home/xxt/data/11.xlsx"}))
+    print(run({"file_path": r"D:\Workspace\11.xlsx"}))

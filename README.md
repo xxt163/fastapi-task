@@ -68,7 +68,6 @@ SMTP_HOST=smtp.example.com
 SMTP_PORT=465
 SMTP_USER=your@example.com
 SMTP_PASSWORD=your_password
-SMTP_FROM=noreply@example.com
 SMTP_TO=admin@example.com
 SMTP_USE_SSL=true
 SMTP_STARTTLS=true

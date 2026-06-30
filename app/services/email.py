@@ -43,8 +43,8 @@ def send_email(
     body: str,
     *,
     to: str | None = settings.smtp_to,
-    cc: str | None = None, 
-    from_addr: str | None = settings.smtp_from,
+    cc: str | None = None,
+    from_addr: str | None = None,
     is_html: bool = False,
     attachments: list[str] | None = None,
     host: str | None = settings.smtp_host,
@@ -63,7 +63,7 @@ def send_email(
 
     msg = MIMEMultipart()
     msg["Subject"] = subject
-    msg["From"] = from_addr
+    msg["From"] = from_addr or user
     msg["To"] = to
     if cc:
         msg["Cc"] = cc

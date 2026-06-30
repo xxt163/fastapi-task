@@ -39,9 +39,9 @@ async def run_task(request: TaskRequest, background_tasks: BackgroundTasks):
     try:
         task_run_func = load_task(request.flow, request.task)
         result = await asyncio.to_thread(task_run_func, request.data)
-    except Exception:
+    except Exception as e:
         status = "failed"
-        error_message = traceback.format_exc()
+        error_message = traceback.format_exc() + "\n\n" + str(e)
         logger.error("Task failed", extra={"task_id": task_id, "error": error_message})
         failure_duration_ms = int((time.perf_counter() - start_time) * 1000)
         background_tasks.add_task(
