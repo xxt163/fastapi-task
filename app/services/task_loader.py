@@ -1,17 +1,54 @@
 """任务模块加载器"""
 
 import importlib
+import time
+from pathlib import Path
 from typing import Any, Callable
 
+from app.core.config import settings
 from app.core.exceptions import TaskLoadError
 
-
 _module_cache: dict[str, Any] = {}
+_task_list_cache: dict[str, Any] = {}
+_TASKS_DIR = Path(settings.project_root_dir) / "tasks"
 
 
 def clear_module_cache() -> None:
     """清除模块缓存，用于开发热重载"""
     _module_cache.clear()
+    _task_list_cache.clear()
+
+
+def get_task_list() -> list[dict]:
+    """
+    获取所有任务列表（带 TTL 缓存）
+
+    Returns:
+        任务列表，每个元素包含 flow、task、path
+    """
+    now = time.time()
+    cache = _task_list_cache.get("list")
+
+    if cache and now - cache["timestamp"] < settings.task_list_cache_ttl:
+        return cache["data"]
+
+    if not _TASKS_DIR.exists():
+        result = []
+    else:
+        result = [
+            {
+                "flow": flow_dir.name,
+                "task": task_file.stem,
+                "path": str(task_file.relative_to(_TASKS_DIR.parent)),
+            }
+            for flow_dir in sorted(_TASKS_DIR.iterdir())
+            if flow_dir.is_dir() and not flow_dir.name.startswith(("_", "."))
+            for task_file in sorted(flow_dir.glob("*.py"))
+            if not task_file.name.startswith("_")
+        ]
+
+    _task_list_cache["list"] = {"timestamp": now, "data": result}
+    return result
 
 
 def get_task_module(flow: str, task: str) -> Any:

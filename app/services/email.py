@@ -16,6 +16,27 @@ from app.core.logger import get_service_logger
 
 logger = get_service_logger("email")
 
+# 最大附件大小限制 (50MB)
+MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024
+
+
+def _read_file_chunks(file_path: str, chunk_size: int = 64 * 1024) -> bytes:
+    """
+    分块读取文件内容，减少内存峰值使用。
+
+    Args:
+        file_path: 文件路径
+        chunk_size: 每块大小 (默认 64KB)
+
+    Returns:
+        文件完整内容 (bytes)
+    """
+    chunks = []
+    with open(file_path, "rb") as f:
+        while chunk := f.read(chunk_size):
+            chunks.append(chunk)
+    return b"".join(chunks)
+
 
 def send_email(
     subject: str,
@@ -55,8 +76,16 @@ def send_email(
 
     if attachments:
         for file_path in attachments:
-            with open(file_path, "rb") as f:
-                part = MIMEApplication(f.read(), Name=os.path.basename(file_path))
+            file_size = os.path.getsize(file_path)
+            if file_size > MAX_ATTACHMENT_SIZE:
+                raise ValueError(
+                    f"附件过大: {os.path.basename(file_path)} ({file_size / 1024 / 1024:.1f}MB), "
+                    f"超过限制 {MAX_ATTACHMENT_SIZE / 1024 / 1024:.0f}MB"
+                )
+            part = MIMEApplication(
+                _read_file_chunks(file_path),
+                Name=os.path.basename(file_path),
+            )
             part["Content-Disposition"] = (
                 f'attachment; filename="{os.path.basename(file_path)}"'
             )

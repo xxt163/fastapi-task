@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     project_root_dir: str = str(Path(__file__).resolve().parent.parent.parent)
 
+    task_list_cache_ttl: int = 30  # 缓存任务列表的 TTL（秒）
+
     # SMTP 邮件通知（任务失败时发送通知，不配置则跳过）
     smtp_host: str = ""
     smtp_port: int = 465
