@@ -47,11 +47,12 @@ def _build_logger(name: str, file_path: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(_get_log_level())
 
-    if logger.handlers:
-        handler = logger.handlers[0]
-        if hasattr(handler, "baseFilename") and os.path.abspath(
-            handler.baseFilename
-        ) == os.path.abspath(file_path):
+    abs_path = os.path.abspath(file_path)
+    for handler in logger.handlers[:]:
+        if (
+            hasattr(handler, "baseFilename")
+            and os.path.abspath(handler.baseFilename) == abs_path
+        ):
             return logger
         handler.close()
         logger.removeHandler(handler)
@@ -88,16 +89,4 @@ def get_task_logger(flow: str, task: str) -> logging.Logger:
     date_dir = os.path.join(LOG_DIR, date_str, flow)
     _ensure_dir(date_dir)
     file_path = os.path.join(date_dir, f"{task}-{timestamp}.log")
-
-    logger_name = f"tasks.{flow}.{task}"
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(_get_log_level())
-
-    for handler in logger.handlers[:]:
-        handler.close()
-        logger.removeHandler(handler)
-
-    handler = logging.FileHandler(file_path, encoding="utf-8")
-    handler.setFormatter(JSONFormatter())
-    logger.addHandler(handler)
-    return logger
+    return _build_logger(f"tasks.{flow}.{task}", file_path)

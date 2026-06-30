@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     smtp_use_ssl: bool = True
     smtp_starttls: bool = True
 
+    workers: int = 1  # 工作进程数
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

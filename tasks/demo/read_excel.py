@@ -15,7 +15,7 @@ def read_excel(file_path: str):
 def run(data: dict):
     logger.info("开始读取 Excel 文件", extra={"file_path": data.get("file_path")})
 
-    file_path = data.get("file_path", "/home/xxt/data/11.xlsx")
+    file_path = data.get("file_path", r"D:\Workspace\11.xlsx")
     logger.info(f"文件路径: {file_path}")
 
     df = read_excel(file_path)

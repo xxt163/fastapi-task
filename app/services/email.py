@@ -42,37 +42,29 @@ def send_email(
     subject: str,
     body: str,
     *,
-    to: str | None = None,
-    cc: str | None = None,
-    from_addr: str | None = None,
+    to: str | None = settings.smtp_to,
+    cc: str | None = None, 
+    from_addr: str | None = settings.smtp_from,
     is_html: bool = False,
     attachments: list[str] | None = None,
-    host: str | None = None,
-    port: int | None = None,
-    user: str | None = None,
-    password: str | None = None,
-    use_ssl: bool | None = None,
-    starttls: bool | None = None,
+    host: str | None = settings.smtp_host,
+    port: int | None = settings.smtp_port,
+    user: str | None = settings.smtp_user,
+    password: str | None = settings.smtp_password,
+    use_ssl: bool | None = settings.smtp_use_ssl,
+    starttls: bool | None = settings.smtp_starttls,
 ) -> None:
     """
     发送邮件，发送失败时抛出异常
     """
-    _host = host or settings.smtp_host
-    _port = port if port is not None else settings.smtp_port
-    _user = user or settings.smtp_user
-    _password = password or settings.smtp_password
-    _from = from_addr or settings.smtp_from or _user
-    _to = to or settings.smtp_to
-    _use_ssl = use_ssl if use_ssl is not None else settings.smtp_use_ssl
-    _starttls = starttls if starttls is not None else settings.smtp_starttls
 
-    if not all([_host, _user, _to]):
+    if not all([host, user, to]):
         raise ValueError("SMTP 未配置，请在 .env 中设置 SMTP_HOST/SMTP_USER/SMTP_TO")
 
     msg = MIMEMultipart()
     msg["Subject"] = subject
-    msg["From"] = _from
-    msg["To"] = _to
+    msg["From"] = from_addr
+    msg["To"] = to
     if cc:
         msg["Cc"] = cc
 
@@ -96,15 +88,15 @@ def send_email(
             msg.attach(part)
 
     try:
-        if _use_ssl:
-            with smtplib.SMTP_SSL(_host, _port, timeout=15) as server:
-                server.login(_user, _password)
+        if use_ssl:
+            with smtplib.SMTP_SSL(host, port, timeout=15) as server:
+                server.login(user, password)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(_host, _port, timeout=15) as server:
-                if _starttls:
+            with smtplib.SMTP(host, port, timeout=15) as server:
+                if starttls:
                     server.starttls()
-                server.login(_user, _password)
+                server.login(user, password)
                 server.send_message(msg)
     except (
         smtplib.SMTPConnectError,
