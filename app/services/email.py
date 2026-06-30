@@ -51,6 +51,8 @@ def send_email(
     port: int | None = None,
     user: str | None = None,
     password: str | None = None,
+    use_ssl: bool | None = None,
+    starttls: bool | None = None,
 ) -> None:
     """
     发送邮件，发送失败时抛出异常
@@ -61,6 +63,8 @@ def send_email(
     _password = password or settings.smtp_password
     _from = from_addr or settings.smtp_from or _user
     _to = to or settings.smtp_to
+    _use_ssl = use_ssl if use_ssl is not None else settings.smtp_use_ssl
+    _starttls = starttls if starttls is not None else settings.smtp_starttls
 
     if not all([_host, _user, _to]):
         raise ValueError("SMTP 未配置，请在 .env 中设置 SMTP_HOST/SMTP_USER/SMTP_TO")
@@ -92,12 +96,14 @@ def send_email(
             msg.attach(part)
 
     try:
-        if settings.smtp_use_ssl:
+        if _use_ssl:
             with smtplib.SMTP_SSL(_host, _port, timeout=15) as server:
                 server.login(_user, _password)
                 server.send_message(msg)
         else:
             with smtplib.SMTP(_host, _port, timeout=15) as server:
+                if _starttls:
+                    server.starttls()
                 server.login(_user, _password)
                 server.send_message(msg)
     except (

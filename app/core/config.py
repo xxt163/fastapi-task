@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     smtp_to: str = ""
     smtp_use_ssl: bool = True
+    smtp_starttls: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",
