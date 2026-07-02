@@ -1,5 +1,7 @@
+fastapi[standard]>=0.138.1
 requests
 pandas
 openpyxl
 xlrd
 pypdf
+xlsxwriter

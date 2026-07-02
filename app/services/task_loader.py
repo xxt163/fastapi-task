@@ -1,6 +1,7 @@
 """任务模块加载器"""
 
 import importlib
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -29,7 +30,11 @@ def get_task_list() -> list[dict]:
     now = time.time()
     cache = _task_list_cache.get("list")
 
-    if cache and now - cache["timestamp"] < settings.task_list_cache_ttl:
+    if (
+        not settings.debug
+        and cache
+        and now - cache["timestamp"] < settings.task_list_cache_ttl
+    ):
         return cache["data"]
 
     if not _TASKS_DIR.exists():
@@ -66,6 +71,10 @@ def get_task_module(flow: str, task: str) -> Any:
         TaskLoadError: 如果模块不存在
     """
     module_name = f"tasks.{flow}.{task}"
+
+    if settings.debug:
+        _module_cache.pop(module_name, None)
+        sys.modules.pop(module_name, None)
 
     if module_name not in _module_cache:
         try:

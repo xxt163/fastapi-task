@@ -4,6 +4,7 @@ import traceback
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks
+from fastapi.encoders import jsonable_encoder
 
 from app.core.logger import get_task_logger
 from app.schemas.task_schemas import TaskRequest, TaskResponse
@@ -59,6 +60,7 @@ async def run_task(request: TaskRequest, background_tasks: BackgroundTasks):
         logger.info(
             "Task completed", extra={"task_id": task_id, "duration_ms": duration_ms}
         )
+        result = jsonable_encoder(result)
 
     return TaskResponse(
         task_id=task_id,

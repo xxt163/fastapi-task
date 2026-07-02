@@ -6,4 +6,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi[standard]>=0.138.1",
+    "openpyxl",
+    "pandas",
+    "pypdf",
+    "requests",
+    "xlrd",
+    "xlsxwriter",
 ]

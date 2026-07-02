@@ -39,28 +39,41 @@ fastapi-task/
 ### 1. 安装依赖
 
 ```bash
-# 使用 uv（推荐）
+# 使用 uv（推荐，会安装全部依赖）
 uv sync
 
 # 或使用 pip
-pip install fastapi[standard]
 pip install -r requirements.txt
 ```
 
 ### 2. 配置 .env
 
-在项目根目录创建 `.env` 文件：
+复制模板并填入实际值：
+
+```bash
+cp .env.example .env
+```
+
+`.env` 已被 `.gitignore` 忽略，请勿提交到仓库。若历史上曾提交过，需从 git 中移除：
+
+```bash
+git rm --cached .env
+```
+
+配置示例见 `.env.example`，主要项：
 
 ```bash
 # 基础配置
 APP_NAME=FastAPI Task
+APP_HOST=127.0.0.1   # 开发默认；生产可设为 0.0.0.0
+APP_PORT=8000
 DEBUG=false
 LOG_LEVEL=INFO
 
 # 任务列表缓存 TTL（秒），默认 30
 TASK_LIST_CACHE_TTL=30
 
-# 生产启动工作进程数（Windows 上必须为 1）
+# 生产启动工作进程数（Windows 上必须为 1，代码会自动降级）
 WORKERS=1
 
 # SMTP 邮件通知（任务失败时发送，不配置则跳过）
@@ -70,7 +83,7 @@ SMTP_USER=your@example.com
 SMTP_PASSWORD=your_password
 SMTP_TO=admin@example.com
 SMTP_USE_SSL=true
-SMTP_STARTTLS=true
+SMTP_STARTTLS=false   # 端口 465 使用 SSL 时应设为 false
 ```
 
 ### 3. 启动服务
@@ -83,7 +96,7 @@ python run_dev.py
 python run_prod.py
 ```
 
-服务运行在 `http://127.0.0.1:8000`（开发）或 `http://0.0.0.0:8000`（生产）。
+服务地址由 `.env` 中的 `APP_HOST` / `APP_PORT` 决定（开发默认 `127.0.0.1:8000`）。
 
 ## API 接口
 
@@ -219,7 +232,8 @@ logs/
 
 ## 注意事项
 
-- **Windows 上 `WORKERS` 必须设为 1**（uvicorn 多进程依赖 `fork`，Windows 不支持）
+- 开发模式（`run_dev.py`）会强制 `DEBUG=true` 并监听 `app/`、`tasks/` 变更，任务模块每次请求重新加载
+- **Windows 上 `WORKERS` 必须设为 1**（`run_prod.py` 会在 Windows 上自动降级为 1）
 - 任务通过 `importlib` 动态加载，首次调用会触发模块 import，后续调用命中缓存，几乎零开销
 - 任务在独立线程中执行，不会阻塞事件循环
 
@@ -227,10 +241,9 @@ logs/
 
 | 包 | 用途 |
 |---|---|
-| `fastapi[standard]` >= 0.138.1 | Web 框架（含 uvicorn、pydantic） |
-| `pydantic-settings` | .env 配置管理 |
+| `fastapi[standard]` >= 0.138.1 | Web 框架（含 uvicorn、pydantic、pydantic-settings） |
 | `requests` | HTTP 客户端（任务脚本使用） |
-| `pandas` / `openpyxl` / `xlrd` | Excel 数据处理 |
+| `pandas` / `openpyxl` / `xlrd` / `xlsxwriter` | Excel 数据处理 |
 | `pypdf` | PDF 文件处理 |
 
 - Python >= 3.10
