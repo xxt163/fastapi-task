@@ -90,3 +90,51 @@ def get_task_logger(flow: str, task: str) -> logging.Logger:
     _ensure_dir(date_dir)
     file_path = os.path.join(date_dir, f"{task}-{timestamp}.log")
     return _build_logger(f"tasks.{flow}.{task}", file_path)
+
+
+def get_uvicorn_log_config() -> dict:
+    """生成 uvicorn 日志配置，将访问日志写入按天分目录的 JSON 文件。"""
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    date_dir = os.path.join(LOG_DIR, date_str)
+    _ensure_dir(date_dir)
+
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "json": {
+                "()": "app.core.logger.JSONFormatter",
+            },
+        },
+        "handlers": {
+            "access": {
+                "class": "logging.FileHandler",
+                "filename": os.path.join(date_dir, "access.log"),
+                "formatter": "json",
+                "encoding": "utf-8",
+            },
+            "error": {
+                "class": "logging.FileHandler",
+                "filename": os.path.join(date_dir, "error.log"),
+                "formatter": "json",
+                "encoding": "utf-8",
+            },
+        },
+        "loggers": {
+            "uvicorn.access": {
+                "handlers": ["access"],
+                "level": _get_log_level(),
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["error"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "uvicorn.asgi": {
+                "handlers": ["error"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+    }

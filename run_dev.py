@@ -6,6 +6,7 @@ os.environ["DEBUG"] = "true"
 import uvicorn
 
 from app.core.config import settings
+from app.core.logger import get_uvicorn_log_config
 
 if __name__ == "__main__":
     uvicorn.run(
@@ -14,4 +15,5 @@ if __name__ == "__main__":
         port=settings.app_port,
         reload=True,
         reload_dirs=["app", "tasks"],
+        log_config=get_uvicorn_log_config(),
     )

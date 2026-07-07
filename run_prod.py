@@ -3,6 +3,7 @@ import sys
 import uvicorn
 
 from app.core.config import settings
+from app.core.logger import get_uvicorn_log_config
 
 if __name__ == "__main__":
     workers = settings.workers
@@ -17,5 +18,5 @@ if __name__ == "__main__":
         host=settings.app_host,
         port=settings.app_port,
         workers=workers,
-        log_config=None,
+        log_config=get_uvicorn_log_config(),
     )

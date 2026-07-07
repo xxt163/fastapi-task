@@ -1,7 +1,6 @@
-import logging
+from tasks._utils import get_logger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 
 
@@ -25,9 +24,5 @@ def run(data: dict):
 
 
 if __name__ == "__main__":
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s")
-    )
-    logger.addHandler(handler)
-    print(run({"file_path": r"D:\Workspace\11.xlsx"}))
+    from tasks._utils import run_main
+    run_main(run, {"file_path": r"D:\Workspace\11.xlsx"})

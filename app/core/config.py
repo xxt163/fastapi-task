@@ -27,12 +27,6 @@ class Settings(BaseSettings):
 
     workers: int = 1  # 工作进程数
 
-    # 网络共享盘挂载（解决 Session 0 无法访问映射驱动器的问题）
-    net_share_remote: str = ""  # \\hostname\data
-    net_share_drive: str = ""  # F:
-    net_share_user: str = ""  # 域账号
-    net_share_password: str = ""  # 密码
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
