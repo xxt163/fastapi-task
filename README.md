@@ -68,6 +68,10 @@ WORKERS=1
 # 任务列表缓存 TTL（秒）
 TASK_LIST_CACHE_TTL=30
 
+# 任务执行限制
+TASK_TIMEOUT_SECONDS=3600     # 单个任务最大执行时间（秒），超时返回错误
+TASK_MAX_CONCURRENCY=5        # 最大并发任务数，超限返回 503
+
 # SMTP 邮件通知（任务失败时发送，不配置则跳过）
 SMTP_HOST=smtp.example.com
 SMTP_PORT=465
@@ -105,8 +109,16 @@ GET /health
 ```
 
 ```json
-{"status": "healthy"}
+{
+  "status": "healthy",
+  "checks": {
+    "tasks_dir": "ok",
+    "smb_mount": "ok"
+  }
+}
 ```
+
+> 返回 `"status": "degraded"` 表示部分依赖异常（如 SMB 未挂载），客户端可据此做容灾切换。
 
 ### 获取任务列表
 
@@ -169,6 +181,8 @@ Content-Type: application/json
   "duration_ms": 150
 }
 ```
+
+> **超时与并发**：任务超时和并发数可通过 `.env` 中的 `TASK_TIMEOUT_SECONDS`（默认 3600s）和 `TASK_MAX_CONCURRENCY`（默认 5）配置。超时后 HTTP 立即返回错误但后台线程继续运行；并发满时返回 503。
 
 ## 编写任务
 
@@ -244,8 +258,11 @@ Windows 服务运行在 Session 0，无法看到用户桌面手动映射的盘�
 - 开发模式（`run_dev.py`）强制 `DEBUG=true` 并监听 `app/`、`tasks/` 变更，任务模块每次请求重新加载
 - **Windows 上 `WORKERS` 必须为 1**（`run_prod.py` 会自动降级）
 - 任务通过 `importlib` 动态加载，首次调用触发 import，后续命中缓存
-- 任务在独立线程中执行，不阻塞事件循环
+- 任务在独立线程中执行，不阻塞事件循环；`asyncio.wait_for()` 超时后 HTTP 返回错误但**线程继续运行**
+- 并发任务数由 `TASK_MAX_CONCURRENCY` 限制（默认 5），超限返回 503；合理设置可防止线程池耗尽
 - 任务脚本只需 `print()`，服务端自动将输出转为 JSON 日志，并发请求日志隔离
+- `/health` 端点会检查 `tasks/` 目录和 SMB 挂载状态，返回 `healthy` 或 `degraded`
+- 每日定时重启（NSSM）会强制终止正在执行的任务，将重启时间设在业务低谷期
 
 ## 依赖
 
