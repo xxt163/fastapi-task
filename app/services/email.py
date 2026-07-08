@@ -5,7 +5,7 @@ import html
 import os
 import smtplib
 import socket
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -15,6 +15,8 @@ from app.core.logger import get_service_logger
 
 
 logger = get_service_logger("email")
+
+CST = timezone(timedelta(hours=8))  # 中国标准时间 UTC+8
 
 # 最大附件大小限制 (50MB)
 MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024
@@ -135,7 +137,7 @@ async def send_task_failure_email(
     <tr><td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">Flow</td><td style="padding: 8px; border: 1px solid #ddd;">{html.escape(flow)}</td></tr>
     <tr><td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">Task</td><td style="padding: 8px; border: 1px solid #ddd;">{html.escape(task)}</td></tr>
     <tr><td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">耗时</td><td style="padding: 8px; border: 1px solid #ddd;">{duration_ms} ms</td></tr>
-    <tr><td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">时间</td><td style="padding: 8px; border: 1px solid #ddd;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</td></tr>
+    <tr><td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">时间</td><td style="padding: 8px; border: 1px solid #ddd;">{datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S")}</td></tr>
     <tr><td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;">错误信息</td><td style="padding: 8px; border: 1px solid #ddd; color: #d32f2f;">{html.escape(error)}</td></tr>
   </table>
   <p style="color: #999; font-size: 12px; margin-top: 20px;">此邮件由 FastAPI Task 系统自动发送</p>

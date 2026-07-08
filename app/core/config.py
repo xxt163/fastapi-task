@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     project_root_dir: str = str(Path(__file__).resolve().parent.parent.parent)
 
     task_list_cache_ttl: int = 30  # 缓存任务列表的 TTL（秒）
+    task_timeout_seconds: int = 3600  # 单个任务最大执行时间（秒），超时返回错误但线程继续运行
+    task_max_concurrency: int = 5  # 最大并发任务数，超过限制返回 503
 
     # SMTP 邮件通知（任务失败时发送通知，不配置则跳过）
     smtp_host: str = ""

@@ -44,7 +44,7 @@ $StartScript = "run_prod.py"
 # 每天定时重启 (通过 Windows 计划任务实现)
 # - 设为 $null 则不启用:  $DailyRestartTime = $null
 # - 设为 "HH:MM" 格式启用: $DailyRestartTime = "03:00"
-$DailyRestartTime = "03:00"
+$DailyRestartTime = "01:00"
 
 # ---------- 以下一般不需要修改 ----------
 
