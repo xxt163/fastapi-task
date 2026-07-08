@@ -221,9 +221,7 @@ __marimo__/
 fastapi-task.zip
 logs/
 
-# Tasks — only demo and shared utils are tracked; actual business tasks stay local
+# Tasks — only demo are tracked; actual business tasks stay local
 tasks/*
 !tasks/demo/
 !tasks/demo/*
-!tasks/_utils.py
-!tasks/__init__.py

@@ -96,6 +96,32 @@ def ensure_smb_mount(
     return mount_smb_drive(drive, share, username, password)
 
 
+def unmount_smb_drive(drive: str):
+    """断开 SMB 网络共享盘。
+
+    只在当前会话内生效，不影响用户桌面会话中的同名盘符。
+
+    Args:
+        drive: 盘符，如 "F:"
+    """
+    if sys.platform != "win32":
+        return
+    if not drive:
+        return
+
+    print(f"[SMB] Unmounting {drive} ...")
+    result = subprocess.run(
+        ["net", "use", drive, "/delete"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        print(f"[SMB] Unmounted successfully: {drive}")
+    else:
+        # 可能本来就没挂载，忽略
+        pass
+
+
 def _drive_accessible(drive: str) -> bool:
     """检查盘符是否已可访问（存在且可列出内容）。"""
     try:
