@@ -1,6 +1,6 @@
 # fastapi-task
 
-FastAPI 任务执行框架 — 将 Python 脚本放入 `tasks/` 目录即可通过 HTTP API 发现并执行，支持任务失败邮件通知和 JSON 格式日志。
+FastAPI 任务执行框架 — 将 Python 脚本放入 `tasks/` 目录即可通过 HTTP API 发现并执行，支持任务失败邮件通知、SMB 网络共享盘自动挂载和 JSON 格式日志。
 
 ## 项目结构
 
@@ -13,21 +13,23 @@ fastapi-task/
 │   ├── core/
 │   │   ├── config.py       # 配置（基于 .env，pydantic-settings）
 │   │   ├── exceptions.py   # 自定义异常
-│   │   └── logger.py       # JSON 日志（按天分目录，独立文件）
+│   │   ├── logger.py       # JSON 日志（按天分目录，午夜自动切换文件）
+│   │   └── smb_mount.py    # SMB 网络共享盘挂载/卸载工具
 │   ├── schemas/
 │   │   └── task_schemas.py # 请求/响应 Pydantic 模型
 │   ├── services/
-│   │   ├── email.py        # SMTP 邮件发送（附件分块读取，支持 SSL/STARTTLS）
+│   │   ├── email.py        # SMTP 邮件发送
 │   │   └── task_loader.py  # 任务动态加载 + 任务列表 TTL 缓存
-│   └── main.py             # FastAPI 应用入口
+│   └── main.py             # FastAPI 应用入口 + lifespan
 ├── tasks/                  # 任务脚本目录（按 flow 分子目录）
 │   └── demo/
-│       └── read_excel.py   # 示例：pandas 读取 Excel
+│       ├── read_excel.py   # 示例：pandas 读取 Excel
+│       └── read_text.py    # 示例：读取文本文件
 ├── scripts/                # Windows 服务管理脚本
 │   ├── create_service.ps1  # 安装为 Windows 服务（NSSM）
 │   └── remove_service.ps1  # 卸载 Windows 服务
 ├── run_dev.py              # 开发启动（127.0.0.1:8000，热重载）
-├── run_prod.py             # 生产启动（0.0.0.0:8000，读取 settings）
+├── run_prod.py             # 生产启动（0.0.0.0:8000）
 ├── pyproject.toml
 ├── requirements.txt
 ├── uv.lock                 # uv 依赖锁定文件
@@ -39,7 +41,7 @@ fastapi-task/
 ### 1. 安装依赖
 
 ```bash
-# 使用 uv（推荐，会安装全部依赖）
+# 使用 uv（推荐）
 uv sync
 
 # 或使用 pip
@@ -48,33 +50,23 @@ pip install -r requirements.txt
 
 ### 2. 配置 .env
 
-复制模板并填入实际值：
-
 ```bash
 cp .env.example .env
 ```
 
-`.env` 已被 `.gitignore` 忽略，请勿提交到仓库。若历史上曾提交过，需从 git 中移除：
-
-```bash
-git rm --cached .env
-```
-
-配置示例见 `.env.example`，主要项：
+编辑 `.env`，按需配置：
 
 ```bash
 # 基础配置
 APP_NAME=FastAPI Task
-APP_HOST=127.0.0.1   # 开发默认；生产可设为 0.0.0.0
+APP_HOST=127.0.0.1
 APP_PORT=8000
 DEBUG=false
 LOG_LEVEL=INFO
-
-# 任务列表缓存 TTL（秒），默认 30
-TASK_LIST_CACHE_TTL=30
-
-# 生产启动工作进程数（Windows 上必须为 1，代码会自动降级）
 WORKERS=1
+
+# 任务列表缓存 TTL（秒）
+TASK_LIST_CACHE_TTL=30
 
 # SMTP 邮件通知（任务失败时发送，不配置则跳过）
 SMTP_HOST=smtp.example.com
@@ -83,20 +75,26 @@ SMTP_USER=your@example.com
 SMTP_PASSWORD=your_password
 SMTP_TO=admin@example.com
 SMTP_USE_SSL=true
-SMTP_STARTTLS=false   # 端口 465 使用 SSL 时应设为 false
+SMTP_STARTTLS=false
+
+# SMB 网络共享盘（Windows 服务自动挂载，非 Windows 或留空则跳过）
+SMB_DRIVE_LETTER=F:
+SMB_SHARE_PATH=\\192.168.1.100\data
+SMB_USERNAME=userl
+SMB_PASSWORD=
 ```
+
+> `.env` 已 `.gitignore`，请勿提交到仓库。
 
 ### 3. 启动服务
 
 ```bash
-# 开发模式（热重载）
+# 开发模式（热重载，127.0.0.1:8000）
 python run_dev.py
 
 # 生产模式
 python run_prod.py
 ```
-
-服务地址由 `.env` 中的 `APP_HOST` / `APP_PORT` 决定（开发默认 `127.0.0.1:8000`）。
 
 ## API 接口
 
@@ -105,8 +103,6 @@ python run_prod.py
 ```http
 GET /health
 ```
-
-响应：
 
 ```json
 {"status": "healthy"}
@@ -118,11 +114,12 @@ GET /health
 GET /task/list
 ```
 
-扫描 `tasks/` 目录，返回所有有效任务。带 30 秒 TTL 缓存（可通过 `TASK_LIST_CACHE_TTL` 调整）：
+扫描 `tasks/` 目录，返回所有有效任务。带 30 秒 TTL 缓存：
 
 ```json
 {
   "tasks": [
+    {"flow": "demo", "task": "read_text", "path": "tasks/demo/read_text.py"},
     {"flow": "demo", "task": "read_excel", "path": "tasks/demo/read_excel.py"}
   ]
 }
@@ -138,9 +135,9 @@ Content-Type: application/json
 
 {
   "flow": "demo",
-  "task": "read_excel",
+  "task": "read_text",
   "data": {
-    "file_path": "D:/data/report.xlsx"
+    "file_path": "F:/test.txt"
   }
 }
 ```
@@ -151,11 +148,11 @@ Content-Type: application/json
 {
   "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "flow": "demo",
-  "task": "read_excel",
+  "task": "read_text",
   "status": "success",
-  "result": { ... },
+  "result": "文件内容...",
   "error": null,
-  "duration_ms": 1250
+  "duration_ms": 320
 }
 ```
 
@@ -165,60 +162,72 @@ Content-Type: application/json
 {
   "task_id": "a1b2c3d4-...",
   "flow": "demo",
-  "task": "read_excel",
+  "task": "read_text",
   "status": "failed",
   "result": null,
   "error": "Traceback ...",
-  "duration_ms": 520
+  "duration_ms": 150
 }
 ```
 
 ## 编写任务
 
-在 `tasks/<flow>/` 下创建 `.py` 文件，实现 `run(data)` 函数即可：
+在 `tasks/<flow>/` 下创建 `.py` 文件，实现 `run(data)` 函数，用 `print()` 输出日志即可：
 
 ```python
 # tasks/demo/hello.py
 
 def run(data: dict):
     name = data.get("name", "World")
+    print(f"收到请求: name={name}")
+    print("处理完成")
     return {"message": f"Hello, {name}!"}
+
+
+if __name__ == "__main__":
+    # 直接运行即可调试，无需任何 import
+    print(run({"name": "FastAPI"}))
 ```
 
-命名规则：
-
-| 项目 | 规则 | 示例 |
-|------|------|------|
-| flow（目录名） | 小写字母开头，仅含小写字母和数字 | `demo`, `etl_v1` ❌ |
-| task（文件名） | 小写字母开头，可含字母、数字、下划线 | `read_excel`, `parse_pdf` |
+> **只需 `print()`**，无需 import 任何 logging 模块。服务模式自动将 `print()` 输出转为 JSON 日志；IDE 直接点击运行即可在终端看到输出。
 
 ## 日志
 
-日志按天分目录，JSON 格式：
+日志按天分目录，午夜自动切换文件，全部 JSON 格式（北京时间 UTC+8）：
 
 ```
 logs/
-└── 2026-06-30/
-    ├── service.log              # 服务级日志（当天追加写入）
-    ├── email.log                # 邮件服务日志
+└── 2026-07-08/
+    ├── startup.log               # 服务启停日志
+    ├── email.log                 # 邮件服务日志
+    ├── access.log                # HTTP 请求日志（uvicorn.access）
+    ├── uvicorn.log               # uvicorn 运行日志
     └── demo/
-        └── read_excel-143025.log  # 每次任务执行独立文件
+        ├── read_text-153001-a1b2c3d4.log  # 每次任务执行独立文件
+        └── read_text-153002-e5f6g7h8.log  # 并发请求不串日志
 ```
 
-每行一条 JSON，包含 `time`、`level`、`logger`、`msg`，以及可选的 `task_id`、`error`、`duration_ms` 等字段。
+每行一条 JSON，`extra` 传入的字段自动输出。示例：
+
+```json
+{"time":"2026-07-08T15:30:00+08:00","level":"INFO","logger":"tasks.demo.read_text.a1b2c3d4","msg":"开始读取文件","file_path":"F:/test.txt"}
+```
+
+## SMB 网络共享盘
+
+Windows 服务运行在 Session 0，无法看到用户桌面手动映射的盘符。配置 `.env` 中的 `SMB_*` 后，服务启动时自动在 Session 0 内挂载指定盘符，停止时自动断开。
+
+- 不影响用户桌面会话中的同名盘符
+- 非 Windows 环境或留空则静默跳过
+- 生产模式每次启动强制重挂，开发模式已存在则跳过
 
 ## 邮件通知
 
-任务执行失败时自动发送 HTML 邮件通知。
-
-- 配置 `.env` 中的 SMTP 参数即可启用
-- 未配置时静默跳过，不影响任务执行
+- 任务执行失败时自动发送 HTML 邮件通知
+- 配置 `.env` 中的 SMTP 参数即可启用，未配置时静默跳过
 - 支持 SSL（端口 465）和 STARTTLS（端口 587）
-- 附件大小限制 50MB，超过抛出 `ValueError`
 
 ## Windows 服务部署
-
-使用 NSSM 将应用注册为 Windows 服务：
 
 ```powershell
 # 安装服务（需要管理员权限）
@@ -232,17 +241,18 @@ logs/
 
 ## 注意事项
 
-- 开发模式（`run_dev.py`）会强制 `DEBUG=true` 并监听 `app/`、`tasks/` 变更，任务模块每次请求重新加载
-- **Windows 上 `WORKERS` 必须设为 1**（`run_prod.py` 会在 Windows 上自动降级为 1）
-- 任务通过 `importlib` 动态加载，首次调用会触发模块 import，后续调用命中缓存，几乎零开销
-- 任务在独立线程中执行，不会阻塞事件循环
+- 开发模式（`run_dev.py`）强制 `DEBUG=true` 并监听 `app/`、`tasks/` 变更，任务模块每次请求重新加载
+- **Windows 上 `WORKERS` 必须为 1**（`run_prod.py` 会自动降级）
+- 任务通过 `importlib` 动态加载，首次调用触发 import，后续命中缓存
+- 任务在独立线程中执行，不阻塞事件循环
+- 任务脚本只需 `print()`，服务端自动将输出转为 JSON 日志，并发请求日志隔离
 
 ## 依赖
 
 | 包 | 用途 |
 |---|---|
 | `fastapi[standard]` >= 0.138.1 | Web 框架（含 uvicorn、pydantic、pydantic-settings） |
-| `requests` | HTTP 客户端（任务脚本使用） |
+| `requests` | HTTP 客户端 |
 | `pandas` / `openpyxl` / `xlrd` / `xlsxwriter` | Excel 数据处理 |
 | `pypdf` | PDF 文件处理 |
 
