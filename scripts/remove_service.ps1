@@ -18,7 +18,8 @@ $ServiceName = "FastAPITask"
 
 # ---------- 以下一般不需要修改 ----------
 
-$NssmExe = Join-Path $PSScriptRoot "nssm.exe"
+# nssm.exe 绝对路径
+$NssmExe = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "nssm.exe"))
 
 if (-not (Test-Path $NssmExe)) {
     Write-Error "nssm.exe not found: $NssmExe"

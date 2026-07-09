@@ -48,8 +48,8 @@ $DailyRestartTime = "01:00"
 
 # ---------- 以下一般不需要修改 ----------
 
-# nssm.exe 路径
-$NssmExe = Join-Path $PSScriptRoot "nssm.exe"
+# nssm.exe 绝对路径
+$NssmExe = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "nssm.exe"))
 
 if (-not (Test-Path $NssmExe)) {
     Write-Error "nssm.exe not found: $NssmExe"
@@ -133,7 +133,7 @@ if ($LASTEXITCODE -ne 0) {
 # 创建每天定时重启的计划任务
 if ($DailyRestartTime) {
     $TaskName = "${ServiceName}_DailyRestart"
-    $ScheduleCmd = "nssm restart $ServiceName"
+    $ScheduleCmd = "`"$NssmExe`" restart $ServiceName"
     Write-Host "Creating daily restart task at $DailyRestartTime..."
     schtasks /create /tn $TaskName /tr "$ScheduleCmd" /sc daily /st $DailyRestartTime /ru SYSTEM /f 2>$null
     if ($LASTEXITCODE -eq 0) {

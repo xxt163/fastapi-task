@@ -13,6 +13,10 @@ CST = timezone(timedelta(hours=8))  # 中国标准时间 UTC+8
 LOG_DIR = os.path.join(settings.project_root_dir, "logs")
 
 # LogRecord 标准属性，extra 字段过滤时排除
+# Uvicorn 通过 extra={"color_message": ...} 传递带 ANSI 转义码的彩色消息，
+# JSON 日志不需要这些字段（msg 中已有正确的纯文本消息），此处将其过滤掉。
+_EXTRA_FIELDS_TO_EXCLUDE = frozenset({"color_message"})
+
 _STANDARD_RECORD_ATTRS = frozenset(
     [
         "args",
@@ -57,7 +61,9 @@ class JSONFormatter(logging.Formatter):
         extra_fields = {
             key: value
             for key, value in record.__dict__.items()
-            if key not in _STANDARD_RECORD_ATTRS and not key.startswith("_")
+            if key not in _STANDARD_RECORD_ATTRS
+            and not key.startswith("_")
+            and key not in _EXTRA_FIELDS_TO_EXCLUDE
         }
         log_data.update(extra_fields)
 
