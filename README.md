@@ -278,4 +278,4 @@ Windows 服务运行在 Session 0，无法看到用户桌面手动映射的盘�
 
 ## License
 
-MIT
+Apache 2.0
